@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spooky Quiz — Halloween</title>
+  <style>
+    /* Simple, modern, Halloween-themed styling (no external libs) */
+    :root{
+      --bg:#0b0f1a;
+      --card:#111827;
+      --accent:#ff6b6b;
+      --accent2:#f59e0b;
+      --muted:#94a3b8;
+      --glass: rgba(255,255,255,0.04);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:radial-gradient(circle at 10% 10%, rgba(245,158,11,0.06), transparent 10%),var(--bg);color:#eef2ff;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{width:100%;max-width:920px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:16px;padding:24px;box-shadow:0 8px 30px rgba(2,6,23,0.6);position:relative;overflow:hidden}
+    .header{display:flex;gap:16px;align-items:center}
+    .pumpkin{width:84px;height:84px;border-radius:12px;background:linear-gradient(180deg,var(--accent),#ff3b3b);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:38px;box-shadow:0 6px 18px rgba(255,107,107,0.16)}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:4px 0 18px;color:var(--muted)}
+    .meta{display:flex;gap:12px;align-items:center;margin-left:auto;color:var(--muted)}
+    .quiz-area{display:grid;grid-template-columns:1fr 320px;gap:18px}
+    @media(max-width:880px){.quiz-area{grid-template-columns:1fr}}
+    .question-card{background:var(--glass);padding:18px;border-radius:12px}
+    .question{font-size:18px;margin:0 0 12px}
+    .choices{display:flex;flex-direction:column;gap:10px}
+    .choice{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:12px;border-radius:10px;cursor:pointer;transition:transform .12s ease,background .12s;user-select:none}
+    .choice:hover{transform:translateY(-4px)}
+    .choice.correct{border-color:rgba(34,197,94,0.9);background:linear-gradient(90deg, rgba(34,197,94,0.06), transparent)}
+    .choice.wrong{border-color:rgba(239,68,68,0.9);background:linear-gradient(90deg, rgba(239,68,68,0.06), transparent)}
+    .side{background:rgba(255,255,255,0.02);padding:16px;border-radius:12px;height:100%}
+    .score{font-size:32px;font-weight:700}
+    .small{font-size:13px;color:var(--muted)}
+    .controls{display:flex;gap:8px;margin-top:12px}
+    button.btn{background:linear-gradient(90deg,var(--accent2),#ffb86b);border:none;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+    .timer{font-weight:700}
+    .leaderboard{margin-top:14px}
+    .lb-list{max-height:180px;overflow:auto;padding:8px;border-radius:8px;border:1px dashed rgba(255,255,255,0.03)}
+    .lb-item{display:flex;justify-content:space-between;padding:6px 8px}
+    .confetti{position:absolute;inset:0;pointer-events:none}
+    /* simple floating bats */
+    .bat{position:absolute;opacity:.12;font-size:90px;transform:rotate(-12deg)}
+    .bat.b1{left:-30px;top:10px}
+    .bat.b2{right:-40px;top:60px;transform:scaleX(-1) rotate(6deg)}
+
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="pumpkin">🎃</div>
+      <div>
+        <h1>Spooky Quiz — Halloween Special</h1>
+        <p class="lead">Short, interactive quiz — no watermarks. Works offline and easy to host on GitHub Pages.</p>
+      </div>
+      <div class="meta">
+        <div class="small">Questions: <span id="total">0</span></div>
+        <div class="small">Time per Q: <span id="tperq">15</span>s</div>
+      </div>
+    </div>
+
+    <div class="quiz-area" style="margin-top:18px">
+      <div>
+        <div class="question-card">
+          <div id="qidx" class="small">Question <strong>1</strong></div>
+          <h2 id="question" class="question">Loading...</h2>
+          <div id="choices" class="choices"></div>
+
+          <div class="controls">
+            <button id="nextBtn" class="btn" style="display:none">Next</button>
+            <button id="restartBtn" class="ghost">Restart</button>
+            <div style="margin-left:auto" class="small">Timer: <span id="timer">15</span>s</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button id="shuffleBtn" class="ghost">Shuffle Qs</button>
+          <button id="addSample" class="ghost">Add Sample Qs</button>
+        </div>
+      </div>
+
+      <aside class="side">
+        <div>
+          <div class="small">Score</div>
+          <div class="score" id="score">0</div>
+          <div class="small">Correct / Total</div>
+          <div class="small" id="progress">0 / 0</div>
+
+          <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)" />
+
+          <div class="small">Leaderboard (Local)</div>
+          <div class="leaderboard">
+            <div id="lbList" class="lb-list"></div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <input id="nameInput" placeholder="Your name" style="flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit" />
+              <button id="saveScore" class="btn">Save</button>
+            </div>
+            <div style="margin-top:8px" class="small">Note: Local leaderboard uses your browser's storage. To share publicly, connect to Firebase or Airtable — instructions in comments below.</div>
+          </div>
+
+        </div>
+      </aside>
+    </div>
+
+    <div class="bat b1">🦇</div>
+    <div class="bat b2">🦇</div>
+  </div>
+
+
+  <script>
+    // --------------------------------------------
+    // Simple Halloween Quiz app (single-file)
+    // Features:
+    // - No external libraries, no watermark
+    // - Randomize questions/choices
+    // - Timer per question
+    // - Local leaderboard (localStorage)
+    // - Easy to host on GitHub Pages / Netlify / Vercel
+    // To deploy: push this file as index.html to a GitHub repo and enable GitHub Pages.
+    // Optional: replace local leaderboard code with Firebase RealtimeDB / Firestore or Airtable API to share scores online.
+    // --------------------------------------------
+
+    // QUESTIONS: Edit these or fetch from a JSON endpoint.
+    const sampleQuestions = [
+      {q:'Which monster is traditionally said to turn into a bat?', choices:['Werewolf','Vampire','Zombie','Mummy'], a:1},
+      {q:'What vegetable is commonly carved into a jack-o\'–lantern?', choices:['Pumpkin','Potato','Turnip','Cucumber'], a:0},
+      {q:'Which of these is a famous horror author?', choices:['Edgar Allan Poe','Dr. Seuss','Jane Austen','Mark Twain'], a:0},
+      {q:'Full moon is often associated with which creature?', choices:['Vampire','Werewolf','Ghost','Witch'], a:1},
+      {q:'Which color is commonly linked with Halloween?', choices:['Pink','Orange','Blue','Purple'], a:1}
+    ];
+
+    // app state
+    let questions = [];
+    let current = 0;
+    let score = 0;
+    let timer = null;
+    let timeLeft = 15;
+    const timePerQDefault = 15;
+
+    // DOM
+    const el = id=>document.getElementById(id);
+    const qEl = el('question'), choicesEl = el('choices'), scoreEl = el('score'), progressEl = el('progress'), qidxEl = el('qidx'), totalEl = el('total'), timerEl = el('timer'), tperqEl = el('tperq'), lbList = el('lbList');
+
+    function init(qs=sampleQuestions){
+      questions = qs.map((x,i)=>({...x, id:i}));
+      totalEl.textContent = questions.length;
+      tperqEl.textContent = timePerQDefault;
+      restart();
+      renderLeaderboard();
+    }
+
+    function startTimer(){
+      clearInterval(timer);
+      timeLeft = timePerQDefault;
+      timerEl.textContent = timeLeft;
+      timer = setInterval(()=>{
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        if(timeLeft<=0){
+          clearInterval(timer);
+          markTimeout();
+        }
+      },1000);
+    }
+
+    function markTimeout(){
+      // show correct answer briefly then move on
+      const cur = questions[current];
+      const nodes = Array.from(choicesEl.children);
+      nodes.forEach((n,idx)=>{
+        if(idx===cur.a) n.classList.add('correct');
+        else n.classList.add('wrong');
+        n.style.pointerEvents='none';
+      })
+      el('nextBtn').style.display='inline-block';
+    }
+
+    function renderQuestion(){
+      const cur = questions[current];
+      qidxEl.innerHTML = `Question <strong>${current+1}</strong>`;
+      qEl.textContent = cur.q;
+      choicesEl.innerHTML='';
+      // shuffle choices with index mapping
+      const order = cur.choices.map((c,i)=>({c,i})).sort(()=>Math.random()-0.5);
+      order.forEach(({c,i})=>{
+        const btn = document.createElement('div');
+        btn.className='choice';
+        btn.textContent = c;
+        btn.addEventListener('click',()=>{selectChoice(i,btn)});
+        choicesEl.appendChild(btn);
+      });
+      startTimer();
+    }
+
+    function selectChoice(choiceIndex, node){
+      clearInterval(timer);
+      const cur = questions[current];
+      const nodes = Array.from(choicesEl.children);
+      nodes.forEach((n,idx)=>n.style.pointerEvents='none');
+      // correct choiceIndex equals cur.a
+      if(choiceIndex===cur.a){
+        node.classList.add('correct');
+        score += 10; // points
+      } else {
+        node.classList.add('wrong');
+        // reveal correct
+        nodes.forEach((n,idx)=>{ if(idx===cur.a) n.classList.add('correct') });
+      }
+      updateScore();
+      el('nextBtn').style.display='inline-block';
+    }
+
+    function nextQuestion(){
+      current++;
+      el('nextBtn').style.display='none';
+      if(current>=questions.length){
+        showResults();
+      } else {
+        renderQuestion();
+      }
+    }
+
+    function showResults(){
+      qEl.textContent = `All done! Your score: ${score}`;
+      choicesEl.innerHTML = `<div class="small">You scored ${score} points.</div>`;
+      clearInterval(timer);
+      progressEl.textContent = `${Math.round(score/10)} / ${questions.length}`;
+    }
+
+    function updateScore(){
+      scoreEl.textContent = score;
+      progressEl.textContent = `${Math.round(score/10)} / ${questions.length}`;
+    }
+
+    function restart(){
+      // shuffle questions
+      questions = questions.sort(()=>Math.random()-0.5);
+      current=0;score=0;updateScore();
+      renderQuestion();
+      el('nextBtn').style.display='none';
+    }
+
+    // simple local leaderboard
+    function getLeaderboard(){
+      try{ return JSON.parse(localStorage.getItem('hb_leaderboard')||'[]') }catch(e){return[]}
+    }
+    function saveLeaderboard(arr){ localStorage.setItem('hb_leaderboard', JSON.stringify(arr)) }
+    function renderLeaderboard(){
+      const lb = getLeaderboard().sort((a,b)=>b.score-a.score).slice(0,10);
+      lbList.innerHTML = lb.map(x=>`<div class="lb-item"><div>${escapeHtml(x.name)}</div><div>${x.score}</div></div>`).join('') || '<div class="small">No scores yet</div>';
+    }
+    function escapeHtml(s){ return (s+'').replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])) }
+
+    // UI bindings
+    document.getElementById('nextBtn').addEventListener('click',nextQuestion);
+    document.getElementById('restartBtn').addEventListener('click',()=>{
+      if(confirm('Restart quiz?')) restart();
+    });
+    document.getElementById('shuffleBtn').addEventListener('click',()=>{ questions = questions.sort(()=>Math.random()-0.5); current=0;restart(); });
+    document.getElementById('addSample').addEventListener('click',()=>{ questions = sampleQuestions.slice(); init(questions); });
+
+    document.getElementById('saveScore').addEventListener('click',()=>{
+      const name = document.getElementById('nameInput').value.trim() || 'Anonymous';
+      const arr = getLeaderboard();
+      arr.push({name,score});
+      saveLeaderboard(arr);
+      renderLeaderboard();
+      alert('Saved locally! Refresh to see persisted scores across sessions on this browser.');
+    });
+
+    // initialise
+    init(sampleQuestions);
+
+    // ------------- Optional: connect to Firebase (example) -------------
+    /*
+      To publish leaderboard online, create a Firebase project and Realtime Database or Firestore.
+      Then add Firebase config below and replace localStorage save/get with calls to Firebase.
+      Example (very brief):
+
+      // after including firebase scripts and initializing
+      function saveScoreOnline(name, score){
+        firebase.database().ref('scores').push({name,score,ts:Date.now()});
+      }
+
+      // and to read top scores:
+      firebase.database().ref('scores').orderByChild('score').limitToLast(10).on('value', snap=>{...})
+
+      Hosting: use GitHub Pages (free) or Netlify/Vercel. No watermarks from these services.
+    */
+  </script>
+</body>
+</html>
